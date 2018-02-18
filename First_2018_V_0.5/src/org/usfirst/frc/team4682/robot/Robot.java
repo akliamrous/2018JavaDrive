@@ -369,9 +369,19 @@ public class Robot extends IterativeRobot {
 				if(gameData.charAt(1) == 'L'){
 					//Left Auto code for Scale in center
 					//forward -90 forward 90 forward, look for line, 90, auto track
+					ML2.set(ControlMode.PercentOutput, -Math.abs(RotSpeed));
+					ML3.set(ControlMode.PercentOutput, -Math.abs(RotSpeed));
+					MR4.set(ControlMode.PercentOutput, Math.abs(RotSpeed));
+					MR5.set(ControlMode.PercentOutput, Math.abs(RotSpeed));
+					RotSpeed = (ahrs.getYaw()/180)-1;
 				}else{
 					//Right Auto code for scale in center
 					//forward 90 forward-90 forward, look for line, -90, auto track
+					ML2.set(ControlMode.PercentOutput, Math.abs(RotSpeed));
+					ML3.set(ControlMode.PercentOutput, Math.abs(RotSpeed));
+					MR4.set(ControlMode.PercentOutput, -Math.abs(RotSpeed));
+					MR5.set(ControlMode.PercentOutput, -Math.abs(RotSpeed));
+					RotSpeed = (ahrs.getYaw()/180)-1;
 				}
 			}
 		}else if(AutoR.get() == true){
