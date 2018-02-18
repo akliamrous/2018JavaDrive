@@ -1,0 +1,410 @@
+package org.usfirst.frc.team4682.robot;
+
+import org.usfirst.frc.team4682.robot.Robot.PlotThread;
+
+import com.ctre.phoenix.motorcontrol.ControlMode;
+import com.ctre.phoenix.motorcontrol.FeedbackDevice;
+import com.ctre.phoenix.motorcontrol.StatusFrameEnhanced;
+import com.ctre.phoenix.motorcontrol.can.TalonSRX;
+import com.ctre.phoenix.motorcontrol.can.WPI_TalonSRX;
+import com.kauailabs.navx.frc.AHRS;
+import com.kauailabs.navx.frc.AHRS.SerialDataType;
+
+import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.IterativeRobot;
+import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.livewindow.LiveWindow;
+import edu.wpi.first.wpilibj.networktables.NetworkTable;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.Talon;
+import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.SerialPort;
+
+/**
+ * The VM is configured to automatically run this class, and to call the
+ * functions corresponding to each mode, as described in the IterativeRobot
+ * documentation. If you change the name of this class or the package after
+ * creating this project, you must also update the manifest file in the resource
+ * directory.
+ */
+public class Robot extends IterativeRobot {
+	Joystick     JoyL 			 = new Joystick(0); // Create Joystick for Left
+	Joystick     JoyR            = new Joystick(1); // Create Joystick for Right
+	//--------------------------------------------------------------------------------------------------------------------------------------------//
+	TalonSRX     MM0		     = new TalonSRX(0);  // ACT ramp_________OR_________unused
+	TalonSRX     MM1             = new TalonSRX(1);  // ACT ramp_________OR_________unused
+	TalonSRX     ML2             = new TalonSRX(2);  // Initialize Left motor 2 ********************************USE FOR ENCODER
+	TalonSRX     ML3             = new TalonSRX(3);  // Initialize Left motor 3
+	TalonSRX     MR4             = new TalonSRX(4);  // Initialize Right motor 4********************************USE FOR ENCODER
+	TalonSRX     MR5             = new TalonSRX(5);  // Initialize Right motor 5
+	TalonSRX     MM6             = new TalonSRX(6);  // Shooter UL
+	TalonSRX     MM7             = new TalonSRX(7);  // Shooter UR
+	TalonSRX     MM8             = new TalonSRX(8);  // Shooter LL
+	TalonSRX     MM9             = new TalonSRX(9);  // Shooter LR
+	TalonSRX     MM10            = new TalonSRX(10); // Arm in
+	TalonSRX     MM11            = new TalonSRX(11); // Arm in
+	TalonSRX     MM12            = new TalonSRX(12); // Belts
+	TalonSRX     MM13            = new TalonSRX(13); // Belts
+	//--------------------------------------------------------------------------------------------------------------------------------------------//
+	double       JoyLY           = 0;   	         // Initialize drive variables
+	double       JoyLX           = 0;
+	double       JoyRY           = 0;
+	double       JoyRX           = 0;
+	
+    double       LeftSpeed       = 0;                //Initialize driver help and autonomous speeds
+    double 		 RightSpeed      = 0;
+    
+    double 		 SwitchX         = 320;
+    double 		 SwitchY         = 0;
+    double  	 SwitchZ         = 0;
+    double  	 ScaleX          = 320;
+    double  	 ScaleY          = 0;
+    double 	 	 ScaleZ          = 0;
+    double  	 ScV             = 0; 				 // Scale View
+	double	  	 ScC             = 0;				 // Scale Color
+	double 		 SwV             = 0; 				 // Switch View
+	double 		 SwC             = 0;				 // Switch Color
+	double		 CV				 = 0;				 // Cube View
+	double		 CX				 = 0;				 // Cube X
+	double 		 CY 			 = 0;				 // Cube Y
+	double   	 ASpeed	     	 = 0;
+	double 		 RotSpeed        = 0;
+	double 		 WheelRotVal     = 0;
+	double  	 GOAL 			 = 0;
+	double 		 GMV			 = 0;
+	double 		 Position 		 = ML2.getSelectedSensorPosition(0);
+	boolean 	 LB3			 = false;
+	boolean 	 RB3 		 	 = false;
+	
+	//--------------------------------------------------------------------------------------------------------------------------------------------//
+	//Fancy Things
+	String  	 gameData;
+	DigitalInput AutoL 		 	 = new DigitalInput(3);
+	DigitalInput AutoC 			 = new DigitalInput(2);
+	DigitalInput AutoR 			 = new DigitalInput(1);
+	DigitalInput Switch_or_Scale = new DigitalInput(4);
+	NetworkTable Switch 		 = NetworkTable.getTable("Switch"); //Initialize network Tables Switch, and Scale
+    NetworkTable Scale	         = NetworkTable.getTable("Scale"); 
+    NetworkTable Cube            = NetworkTable.getTable("Cube"); 
+    NetworkTable CS				 = NetworkTable.getTable("ColorSensor");
+	AHRS 		 ahrs;
+	PlotThread _plotThread;
+	//--------------------------------------------------------------------------------------------------------------------------------------------//
+    
+    
+    
+    
+    public void dT(double GMV1,double GMV2,double GMV3, double GMV4){
+    	ML2.set(ControlMode.PercentOutput, GMV1);//	Set Motors to drive values
+		ML3.set(ControlMode.PercentOutput, GMV2);
+		MR4.set(ControlMode.PercentOutput, GMV3);
+		MR5.set(ControlMode.PercentOutput, GMV4);
+    }
+	/**
+	 * This function is run when the robot is first started up and should be
+	 * used for any initialization code.
+	 */
+	
+	public Robot() {
+		try {
+		ahrs = new AHRS(SerialPort.Port.kMXP, SerialDataType.kProcessedData, (byte)50);
+		ahrs.enableLogging(true);
+		} catch (RuntimeException ex ) {
+            DriverStation.reportError("Error instantiating navX MXP:  " + ex.getMessage(), true);
+        }
+		 ML2.setStatusFramePeriod(StatusFrameEnhanced.Status_2_Feedback0, 1,10);
+		  ML2.configSelectedFeedbackSensor(FeedbackDevice.CTRE_MagEncoder_Relative, 0, 10);
+		  /* fire the plotter */
+			_plotThread = new PlotThread(this);
+			new Thread(_plotThread).start();
+	}
+	
+	
+	public void robotInit() {
+		Scale  = NetworkTable.getTable("Scale"); // Initialize Network Table things
+		Switch = NetworkTable.getTable("Switch");
+		Cube   = NetworkTable.getTable("Cube");
+		Switch.putNumber("X", 0);
+		Switch.putNumber("Y", 0);
+		Switch.putNumber("View", 0);
+		Switch.putNumber("Color", 0);
+		//Switch.putNumber("Z", 0);
+		Scale .putNumber("X", 0);
+		Scale .putNumber("Y", 0);
+		//Scale.putNumber("Z", 0);
+		Scale .putNumber("View", 0);
+		Scale .putNumber("Color", 0);
+		Cube  .putNumber("X", 0);
+		Cube  .putNumber("Y", 0);
+		Cube  .putNumber("View", 0);
+		
+		//table.putBoolean("bool", false);
+		
+		WheelRotVal = (ML2.getSelectedSensorPosition(0))/1000;
+		
+	}
+	/**
+	 * This function is run once each time the robot enters autonomous mode
+	 */
+	@Override
+	public void autonomousInit() {
+		gameData = DriverStation.getInstance().getGameSpecificMessage();
+	}
+
+	/**
+	 * This function is called periodically during autonomous
+	 */
+	@Override
+	public void autonomousPeriodic() {
+		/*
+		 * Use quararion X,Y, and Z
+		 * these are rotational values
+		 */
+		if(AutoL.get() != true){
+			//Auto Left Code
+			if(Switch_or_Scale.get() != true){
+				//Switch is on scale is off
+				//Switch
+				if(gameData.charAt(0) == 'L'){
+					//Left Auto code for switch on left
+					System.out.println("Left Pos; Switch Facing Left ; 1");
+					//1 Forward
+					GOAL = 10;
+					while(Position < GOAL){
+						dT(ASpeed,ASpeed, ASpeed, ASpeed);
+						ASpeed = (Position/GOAL)-1; // THIS WILL MAKE THINGS GO OUT OF WACK!==========================================================================================================================================================================
+					} 
+					//2 gyro = 90
+					while(ahrs.getYaw() != 90){
+						dT(WheelRotVal,WheelRotVal,-WheelRotVal,-WheelRotVal);
+						RotSpeed = (ahrs.getYaw()/180)-1;
+					}
+					//3 deposit cube 
+					System.out.println(WheelRotVal);
+				}else{
+					//Right Auto code for switch on left
+					//1 forward
+					//2gyro = 90
+					//3 forward
+					//4 gyro = 180
+					//5 forward
+					//6 gyro = 270 
+					//7 deposit cube 
+					System.out.println("Left Pos; Switch Facing Right ; 2");
+				}
+			}else{
+				//Scale
+				if(gameData.charAt(1) == 'L'){
+					//Left Auto Code for Scale on left
+					System.out.println("Left Pos; Scale Facing Left ; 3");
+				}else{
+					//Right Auto Code for Scale on left
+					System.out.println("Left Pos; Scale Facing Right ; 4");
+				}
+			}
+		}else if(AutoC.get() != true){
+			//Auto Center Code
+			if(Switch_or_Scale.get() != true){
+				//Switch is on scale is off
+				//Switch
+				if(gameData.charAt(0) == 'L'){
+					//Left Auto code for switch in center
+					System.out.println("Center Pos; Switch Facing Left ; 5");
+				}else{
+					//Right Auto code for switch in center
+					System.out.println("Center Pos; Switch Facing Right ; 6");
+				}
+			}else{
+				//Scale
+				if(gameData.charAt(1) == 'L'){
+					//Left Auto code for Scale in center
+					System.out.println("Center Pos; Scale Facing Left ; 7");
+				}else{
+					//Right Auto code for scale in center
+					System.out.println("Center Pos; Scale Facing Right ; 8");
+				}
+			}
+		}else if(AutoR.get() != true){
+			//Auto Right Code
+			if(Switch_or_Scale.get() != true){
+				//Switch is on scale is off
+				//Switch
+				if(gameData.charAt(0) == 'L'){
+					//Left auto code for switch on right
+					System.out.println("Right Pos; Switch; Facing Left ; 9");
+				}else{
+					//Right auto code for switch on right
+					System.out.println("Right Pos; Switch; Facing Right ; 10");
+				}
+			}else{
+				//Scale
+				if(gameData.charAt(1) == 'L'){
+					//Left auto code for scale on right
+					System.out.println("Right Pos; Scale; Facing Left ; 11");
+				}else{
+					//Left auto code for scale on right
+					System.out.println("Right Pos; Scale; Facing Right ; 12");
+				}
+			}
+		}else{
+			System.out.println("ERROR 13");
+		}
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	}
+
+	/**
+	 * This function is called once each time the robot enters tele-operated
+	 * mode
+	 */
+	@Override
+	public void teleopInit() {
+		JoyLY = JoyL.getY();// Drive Train
+		JoyRY = -JoyR.getY();   
+	}
+
+	/**
+	 * This function is called periodically during operator control
+	 */
+	@SuppressWarnings("deprecation")
+	@Override
+	public void teleopPeriodic() {
+	SwitchX = Switch.getNumber("X", 0);
+	//SwitchY = Switch.getNumber("Y", 0);
+	//SwitchZ = Switch.getNumber("Z", 0);
+	ScaleX = 320*(JoyL.getX()+1);//Scale.getNumber("X", 0);
+	//ScaleY = Scale.getNumber("Y", 0);
+	//ScaleZ = Scale.getNumber("Z", 0); 
+	ScV = Scale.getNumber("View", 0); //Scale View
+	ScC = Scale.getNumber("Color", 0); //Scale Color
+	SwV = Switch.getNumber("View", 0); //Switch View
+	SwC = Switch.getNumber("Color", 0); //Switch Color
+	
+	System.out.println(ScaleX);
+	
+	/*
+			System.out.print("areas: ");
+			for (double area : areas){
+				System.out.print(area + " ");
+			}
+				
+			
+			System.out.println();
+			
+		//table.putNumber("test", 1);
+		//table.getNumber("test", 0);
+		//if(table.getNumber("Motor", 4) == 1){
+		//	MotorL3.set(ControlMode.PercentOutput, 50);
+		//}else{
+		//	MotorL3.set(ControlMode.PercentOutput, 0);
+		//}
+		 */
+		if (RB3 == true){
+			if (CV == 1){
+				if(CX < 190){
+					//Rotate Clockwise
+					//Left Forward Right back
+					dT(LeftSpeed,LeftSpeed, -LeftSpeed, -LeftSpeed);
+						//ML2.set(ControlMode.PercentOutput, Math.abs(LeftSpeed));
+						//ML3.set(ControlMode.PercentOutput, Math.abs(LeftSpeed));
+						//MR4.set(ControlMode.PercentOutput, -Math.abs(LeftSpeed));
+						//MR5.set(ControlMode.PercentOutput, -Math.abs(LeftSpeed));
+					LeftSpeed = (CX/200)-1;
+					System.out.println(LeftSpeed + "; Clockwise");
+				
+				} else if(CX > 210){
+					//Rotate Counter Clockwise
+					//Left Backward Right Forward
+					dT(-RightSpeed,-RightSpeed,RightSpeed, RightSpeed);
+					//ML2.set(ControlMode.PercentOutput, -Math.abs(RightSpeed));
+					//ML3.set(ControlMode.PercentOutput, -Math.abs(RightSpeed));
+					//MR4.set(ControlMode.PercentOutput, Math.abs(RightSpeed));
+					//MR5.set(ControlMode.PercentOutput, Math.abs(RightSpeed));
+					RightSpeed =(CX/200)-1;
+					System.out.println(RightSpeed + "; Counter Clockwise");
+				
+				}else{
+					System.out.println("Scale not in view");
+				}
+			}
+		}else{
+			dT(JoyLY,JoyLY,JoyRY, JoyRY);
+			/*ML2.set(ControlMode.PercentOutput, JoyLY);//	Set Motors to drive values
+			ML3.set(ControlMode.PercentOutput, JoyLY);
+			MR4.set(ControlMode.PercentOutput, JoyRY);
+			MR5.set(ControlMode.PercentOutput, JoyRY);
+			*/
+		}
+	
+		
+		/*if(ScaleZ == TEST){
+			
+		}else if(ScaleZ <= TEST){
+			//forward
+			MotorL2.set(ControlMode.PercentOutput, 0.1);
+			MotorL3.set(ControlMode.PercentOutput, -0.1);
+			MotorR4.set(ControlMode.PercentOutput, 0.1);
+			MotorR5.set(ControlMode.PercentOutput, 0.1);
+		}else if(ScaleZ >= TEST){
+			//backward
+			MotorL2.set(ControlMode.PercentOutput, -0.1);
+			MotorL3.set(ControlMode.PercentOutput, 0.1);
+			MotorR4.set(ControlMode.PercentOutput, -0.1);
+			MotorR5.set(ControlMode.PercentOutput, -0.1);
+		}
+		*/
+		
+	}
+		
+	
+
+	/**
+	 * This function is called periodically during test mode
+	 */
+	@Override
+	public void testPeriodic() {
+		LiveWindow.run();
+	}
+	class PlotThread implements Runnable {
+		Robot robot;
+
+		public PlotThread(Robot robot) {
+			this.robot = robot;
+		}
+
+		public void run() {
+			/*
+			 * speed up network tables, this is a test project so eat up all of
+			 * the network possible for the purpose of this test.
+			 */
+			// NetworkTable.setUpdateRate(0.010); /* this suggests each time
+			// unit is 10ms in the plot */
+			
+			while (true) {
+				/* yield for a ms or so - this is not meant to be accurate */
+				try {
+					Thread.sleep(1);
+				} catch (Exception e) {
+				}
+				/* grab the last signal update from our 1ms frame update */
+				double velocity = this.robot.ML2.getSelectedSensorVelocity(0);
+				
+				//Position  = this.robot.ML2.getSelectedSensorPosition(0);
+				
+				SmartDashboard.putNumber("vel", velocity);
+				SmartDashboard.putNumber("Position", this.robot.WheelRotVal);
+			}
+		}
+	}
+}
+
